@@ -7818,6 +7818,7 @@ _dispatch_sigsuspend(void)
 }
 #endif // !defined(_WIN32)
 
+#if defined(__linux__)
 DISPATCH_NORETURN
 static void
 _dispatch_sig_thread(void *ctxt DISPATCH_UNUSED)
@@ -7831,6 +7832,7 @@ _dispatch_sig_thread(void *ctxt DISPATCH_UNUSED)
 	_dispatch_sigsuspend();
 #endif
 }
+#endif
 
 void
 dispatch_main(void)
@@ -7969,7 +7971,7 @@ _dispatch_context_cleanup(void *ctxt)
 #pragma mark -
 #pragma mark dispatch_init
 
-#if !DISPATCH_USE_COOPERATIVE_WORKQUEUE
+#if !DISPATCH_USE_INTERNAL_WORKQUEUE && !DISPATCH_USE_COOPERATIVE_WORKQUEUE
 static void
 _dispatch_cooperative_root_queue_init_fallback(dispatch_queue_global_t dq)
 {
