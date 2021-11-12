@@ -794,7 +794,10 @@ _dispatch_async_redirect_invoke(dispatch_continuation_t dc,
 {
 	dispatch_thread_frame_s dtf;
 	struct dispatch_continuation_s *other_dc = dc->dc_other;
-	dispatch_invoke_flags_t ctxt_flags = (dispatch_invoke_flags_t)dc->dc_ctxt;
+#if DISPATCH_SIZEOF_PTR == 8
+	dispatch_assert(((uintptr_t)dc->dc_ctxt >> 32) == 0);
+#endif
+	dispatch_invoke_flags_t ctxt_flags = (dispatch_invoke_flags_t)(uintptr_t)dc->dc_ctxt;
 	// if we went through _dispatch_root_queue_push_override,
 	// the "right" root queue was stuffed into dc_func
 	dispatch_queue_global_t assumed_rq = (dispatch_queue_global_t)dc->dc_func;
@@ -5762,11 +5765,11 @@ dispatch_channel_enqueue(dispatch_channel_t dch, void *ctxt)
 
 #ifndef __APPLE__
 #if __BLOCKS__
-void __typeof__(dispatch_channel_async) dispatch_channel_async
+__typeof__(dispatch_channel_async) dispatch_channel_async
 		__attribute__((__alias__("dispatch_async")));
 #endif
 
-void __typeof__(dispatch_channel_async_f) dispatch_channel_async_f
+__typeof__(dispatch_channel_async_f) dispatch_channel_async_f
 		__attribute__((__alias__("dispatch_async_f")));
 #endif
 
@@ -6988,7 +6991,13 @@ _dispatch_worker_thread(void *context)
 	/* Set it up before the configure block so that it can get overridden by
 	 * client if they want to name their threads differently */
 	if (dq->_as_dq->dq_label) {
+#if defined(__APPLE__)
 		pthread_setname_np(dq->_as_dq->dq_label);
+#elif defined(_WIN32)
+		SetThreadDescription(GetCurrentThread(), dq->_as_dq->dq_label);
+#else
+		pthread_setname_np(pthread_self(), dq->_as_dq->dq_label);
+#endif
 	}
 
 	if (pqc->dpq_thread_configure) {
@@ -7886,7 +7895,7 @@ _dispatch_queue_cleanup2(void)
 	// similar non-POSIX API was called
 	// this has to run before the DISPATCH_COCOA_COMPAT below
 	// See dispatch_main for call to _dispatch_sig_thread on linux.
-#ifndef __linux__
+#if 0
 	if (_dispatch_program_is_probably_callback_driven) {
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
@@ -8142,8 +8151,10 @@ DISPATCH_EXPORT DISPATCH_NOTHROW
 void
 libdispatch_init(void)
 {
+#if 0
 	dispatch_assert(sizeof(struct dispatch_apply_s) <=
 			DISPATCH_CONTINUATION_SIZE);
+#endif
 
 	if (_dispatch_getenv_bool("LIBDISPATCH_STRICT", false)) {
 		_dispatch_mode |= DISPATCH_MODE_STRICT;
